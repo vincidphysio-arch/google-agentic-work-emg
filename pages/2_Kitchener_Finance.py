@@ -5,14 +5,40 @@ import json
 import io
 
 def get_google_sheet_df(sheet_name, worksheet_name):
-    creds_dict = json.loads(st.secrets["gcpjson"])
-    gc = gspread.service_account_from_dict(creds_dict)
-    sh = gc.open(sheet_name)
-    worksheet = sh.worksheet(worksheet_name)
-    data = worksheet.get_all_values()
-    headers = data[0]
-    df = pd.DataFrame(data[1:], columns=headers)
-    return df
+    """
+    Fetch data from Google Sheet with proper credential handling
+    """
+    try:
+        # Load credentials from Streamlit secrets
+        creds_dict = json.loads(st.secrets["gcpjson"])
+        
+        # Create gspread client with service account
+        gc = gspread.service_account_from_dict(creds_dict)
+        
+        # Open the spreadsheet and worksheet
+        sh = gc.open(sheet_name)
+        worksheet = sh.worksheet(worksheet_name)
+        
+        # Get all data
+        data = worksheet.get_all_values()
+        
+        # Create DataFrame
+        if len(data) > 0:
+            headers = data[0]
+            df = pd.DataFrame(data[1:], columns=headers)
+            return df
+        else:
+            return pd.DataFrame()
+            
+    except gspread.exceptions.APIError as e:
+        st.error(f"Google Sheets API Error: {str(e)}")
+        st.info("Please refresh the page or contact support if the issue persists.")
+        return pd.DataFrame()
+    
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        st.info("Please check your credentials and try again.")
+        return pd.DataFrame()
 
 SHEET_NAME = "EMG Payments Kitchener"
 WORKSHEET_NAME = "Payments"
