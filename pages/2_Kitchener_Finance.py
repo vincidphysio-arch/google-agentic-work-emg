@@ -4,6 +4,7 @@ import pandas as pd
 import json
 import io
 
+@st.cache_data(ttl=60)
 def get_google_sheet_df(sheet_name, worksheet_name):
     """
     Fetch data from Google Sheet with proper credential handling
