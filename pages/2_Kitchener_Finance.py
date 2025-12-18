@@ -117,11 +117,11 @@ if not df.empty:
         
     # 3. Parse Dates
     if 'Date' in df.columns:
-        df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce')
+        df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce, dayfirst=True)
         df = df.dropna(subset=['Date Object'])
         
         # Calculate Metrics
-        current_date = pd.Timestamp.now()
+        current_date = pd.Timestamp.now(), dayfirst=True
         current_month = current_date.month
         current_year = current_date.year
         
