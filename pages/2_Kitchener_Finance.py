@@ -6,39 +6,22 @@ import io
 
 @st.cache_data(ttl=60)
 def get_google_sheet_df(sheet_name, worksheet_name):
-    """
-    Fetch data from Google Sheet with proper credential handling
-    """
+    """Fetch data from Google Sheet with proper credential handling"""
     try:
-        # Load credentials from Streamlit secrets
         creds_dict = json.loads(st.secrets["gcpjson"])
-        
-        # Create gspread client with service account
         gc = gspread.service_account_from_dict(creds_dict)
-        
-        # Open the spreadsheet and worksheet
         sh = gc.open(sheet_name)
         worksheet = sh.worksheet(worksheet_name)
-        
-        # Get all data
         data = worksheet.get_all_values()
         
-        # Create DataFrame
         if len(data) > 0:
             headers = data[0]
             df = pd.DataFrame(data[1:], columns=headers)
             return df
-        else:
-            return pd.DataFrame()
-            
-    except gspread.exceptions.APIError as e:
-        st.error(f"Google Sheets API Error: {str(e)}")
-        st.info("Please refresh the page or contact support if the issue persists.")
         return pd.DataFrame()
-    
+            
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
-        st.info("Please check your credentials and try again.")
         return pd.DataFrame()
 
 SHEET_NAME = "EMG Payments Kitchener"
@@ -60,15 +43,13 @@ div[data-testid="stMetric"] {
     border: none; padding: 20px; border-radius: 15px; color: white;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
-div[data-testid="stMetricLabel"] { color: rgba(255,255,255,0.9) !important; font-size: 14px; font-weight: 500; }
-div[data-testid="stMetricValue"] { color: white !important; font-size: 28px; font-weight: bold; }
 .highlight-card {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     border-radius: 20px; padding: 30px; text-align: center; margin-bottom: 20px;
     box-shadow: 0 8px 25px rgba(245, 87, 108, 0.4);
 }
-.highlight-label { color: white; font-size: 18px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; }
-.highlight-value { color: white; font-size: 48px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+.highlight-label { color: white; font-size: 18px; font-weight: 600; text-transform: uppercase; }
+.highlight-value { color: white; font-size: 48px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -76,15 +57,18 @@ df = get_google_sheet_df(SHEET_NAME, WORKSHEET_NAME)
 
 # --- Data Cleaning & Filtering ---
 if not df.empty:
-    # 1. Filter and RESET INDEX (Crucial to fix KeyError)
+    # 1. FIX: Remove duplicate column names immediately (Required for Streamlit/Arrow)
+    df = df.loc[:, ~df.columns.duplicated()]
+
+    # 2. Filter and RESET INDEX
     if 'Doctor' in df.columns:
         df = df[~df['Doctor'].str.contains('Tugalov', case=False, na=False)].reset_index(drop=True)
     
-    # 2. Convert Amount to Numeric
+    # 3. Convert Amount to Numeric
     if 'Amount' in df.columns:
         df['Amount'] = pd.to_numeric(df['Amount'].astype(str).str.replace('$','').str.replace(',',''), errors='coerce').fillna(0)
         
-    # 3. Parse Dates
+    # 4. Parse Dates
     if 'Date' in df.columns:
         df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce', dayfirst=True)
         df = df.dropna(subset=['Date Object']).reset_index(drop=True)
@@ -97,29 +81,23 @@ if not df.empty:
         monthly_earnings = df[(df['Date Object'].dt.month == current_month) & (df['Date Object'].dt.year == current_year)]['Amount'].sum()
         yearly_earnings = df[(df['Date Object'].dt.year == current_year)]['Amount'].sum()
         
-        # --- Display Metrics ---
         st.markdown("### 📊 Earnings Overview")
-        left_col, right_col = st.columns([2, 1])
-        with left_col:
+        l_col, r_col = st.columns([2, 1])
+        with l_col:
             c1, c2 = st.columns(2)
             c1.metric("💰 Total Earnings", f"${total_earnings:,.2f}")
             c2.metric("📈 This Year", f"${yearly_earnings:,.2f}")
-        with right_col:
+        with r_col:
             st.markdown(f'<div class="highlight-card"><div class="highlight-label">🌟 This Month</div><div class="highlight-value">${monthly_earnings:,.2f}</div></div>', unsafe_allow_html=True)
 
-        # --- Styled Table ---
         st.divider()
         st.subheader("📋 Detailed Records")
         
-        def highlight_amount(val):
-            return 'color: green; font-weight: bold'
-            
         try:
-            # Use map instead of applymap for modern Pandas compatibility
-            styled_df = df.style.format({"Amount": "${:,.2f}"}).map(highlight_amount, subset=['Amount'])
+            # Use map for cell-wise styling
+            styled_df = df.style.format({"Amount": "${:,.2f}"}).map(lambda x: 'color: green; font-weight: bold', subset=['Amount'])
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
         except Exception:
-            # Fallback if styling still fails due to data inconsistencies
             st.dataframe(df, use_container_width=True, hide_index=True)
 
         # Downloads
