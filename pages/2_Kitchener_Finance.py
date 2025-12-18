@@ -41,7 +41,7 @@ def get_google_sheet_df(sheet_name, worksheet_name):
         st.info("Please check your credentials and try again.")
         return pd.DataFrame()
 
-SHEET_NAME = "interac Payments recieved"
+SHEET_NAME = "EMG Payments Kitchener"
 WORKSHEET_NAME = "Payments"
 
 st.set_page_config(page_title="Kitchener Finance Dashboard", layout="wide")
