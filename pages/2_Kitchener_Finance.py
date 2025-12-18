@@ -116,7 +116,7 @@ if not df.empty:
         
     # 3. Parse Dates
     if 'Date' in df.columns:
-        df['Date Object'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
+        df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce')
         df = df.dropna(subset=['Date Object'])
         
         # Calculate Metrics
