@@ -121,7 +121,7 @@ if not df.empty:
         df = df.dropna(subset=['Date Object'])
         
         # Calculate Metrics
-        current_date = pd.Timestamp.now(), dayfirst=True
+        current_date = pd.Timestamp.n'coerce', dayfirst=True)
         current_month = current_date.month
         current_year = current_date.year
         
