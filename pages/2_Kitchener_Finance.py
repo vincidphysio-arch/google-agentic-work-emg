@@ -54,54 +54,21 @@ if st.button("Refresh Data"):
 # --- CSS Styling ---
 st.markdown("""
 <style>
-/* General page styling */
-.main {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-}
-
-/* Standard metric cards */
+.main { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
 div[data-testid="stMetric"] {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    padding: 20px;
-    border-radius: 15px;
-    color: white;
+    border: none; padding: 20px; border-radius: 15px; color: white;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
-div[data-testid="stMetricLabel"] {
-    color: rgba(255,255,255,0.9) !important;
-    font-size: 14px;
-    font-weight: 500;
-}
-div[data-testid="stMetricValue"] {
-    color: white !important;
-    font-size: 28px;
-    font-weight: bold;
-}
-
-/* Custom highlighted card for This Month */
+div[data-testid="stMetricLabel"] { color: rgba(255,255,255,0.9) !important; font-size: 14px; font-weight: 500; }
+div[data-testid="stMetricValue"] { color: white !important; font-size: 28px; font-weight: bold; }
 .highlight-card {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    border-radius: 20px;
-    padding: 30px;
+    border-radius: 20px; padding: 30px; text-align: center; margin-bottom: 20px;
     box-shadow: 0 8px 25px rgba(245, 87, 108, 0.4);
-    text-align: center;
-    margin-bottom: 20px;
 }
-.highlight-label {
-    color: white;
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-.highlight-value {
-    color: white;
-    font-size: 48px;
-    font-weight: bold;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-}
+.highlight-label { color: white; font-size: 18px; font-weight: 600; margin-bottom: 10px; text-transform: uppercase; }
+.highlight-value { color: white; font-size: 48px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -109,9 +76,9 @@ df = get_google_sheet_df(SHEET_NAME, WORKSHEET_NAME)
 
 # --- Data Cleaning & Filtering ---
 if not df.empty:
-    # 1. Filter out Dr. Tugalov
+    # 1. Filter and RESET INDEX (Crucial to fix KeyError)
     if 'Doctor' in df.columns:
-        df = df[~df['Doctor'].str.contains('Tugalov', case=False, na=False)]
+        df = df[~df['Doctor'].str.contains('Tugalov', case=False, na=False)].reset_index(drop=True)
     
     # 2. Convert Amount to Numeric
     if 'Amount' in df.columns:
@@ -120,42 +87,25 @@ if not df.empty:
     # 3. Parse Dates
     if 'Date' in df.columns:
         df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce', dayfirst=True)
-        df = df.dropna(subset=['Date Object'])
+        df = df.dropna(subset=['Date Object']).reset_index(drop=True)
         
-        # --- FIXED SYNTAX HERE ---
         current_date = pd.Timestamp.now()
         current_month = current_date.month
         current_year = current_date.year
         
         total_earnings = df['Amount'].sum()
-        
-        monthly_earnings = df[
-            (df['Date Object'].dt.month == current_month) & 
-            (df['Date Object'].dt.year == current_year)
-        ]['Amount'].sum()
-        
-        yearly_earnings = df[
-            (df['Date Object'].dt.year == current_year)
-        ]['Amount'].sum()
+        monthly_earnings = df[(df['Date Object'].dt.month == current_month) & (df['Date Object'].dt.year == current_year)]['Amount'].sum()
+        yearly_earnings = df[(df['Date Object'].dt.year == current_year)]['Amount'].sum()
         
         # --- Display Metrics ---
         st.markdown("### 📊 Earnings Overview")
-        
         left_col, right_col = st.columns([2, 1])
-        
         with left_col:
             c1, c2 = st.columns(2)
             c1.metric("💰 Total Earnings", f"${total_earnings:,.2f}")
             c2.metric("📈 This Year", f"${yearly_earnings:,.2f}")
-            
         with right_col:
-             # Highlighted "This Month" card
-            st.markdown(f"""
-            <div class="highlight-card">
-                <div class="highlight-label">🌟 This Month</div>
-                <div class="highlight-value">${monthly_earnings:,.2f}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="highlight-card"><div class="highlight-label">🌟 This Month</div><div class="highlight-value">${monthly_earnings:,.2f}</div></div>', unsafe_allow_html=True)
 
         # --- Styled Table ---
         st.divider()
@@ -164,23 +114,23 @@ if not df.empty:
         def highlight_amount(val):
             return 'color: green; font-weight: bold'
             
-        # Display the actual Date column instead of the Object if preferred
-        styled_df = df.style.format({"Amount": "${:,.2f}"})\
-                            .map(highlight_amount, subset=['Amount'])
-                            
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        try:
+            # Use map instead of applymap for modern Pandas compatibility
+            styled_df = df.style.format({"Amount": "${:,.2f}"}).map(highlight_amount, subset=['Amount'])
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        except Exception:
+            # Fallback if styling still fails due to data inconsistencies
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
         # Downloads
         col_down1, col_down2 = st.columns(2)
         with col_down1:
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button("📥 Download CSV", csv, "KitchenerFinance.csv", "text/csv")
-        
         with col_down2:
             buffer = io.BytesIO()
             df.to_excel(buffer, index=False)
             buffer.seek(0)
             st.download_button("📥 Download Excel", buffer, "KitchenerFinance.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 else:
     st.info("No data available.")
