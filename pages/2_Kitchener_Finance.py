@@ -44,7 +44,9 @@ def get_google_sheet_df(sheet_name, worksheet_name):
 SHEET_NAME = "EMG Payments Kitchener"
 WORKSHEET_NAME = "Payments"
 
+st.set_page_config(page_title="Kitchener Finance Dashboard", layout="wide")
 st.title("Kitchener Finance Dashboard")
+
 if st.button("Refresh Data"):
     st.cache_data.clear()
     st.rerun()
@@ -67,12 +69,12 @@ div[data-testid="stMetric"] {
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 div[data-testid="stMetricLabel"] {
-    color: rgba(255,255,255,0.9);
+    color: rgba(255,255,255,0.9) !important;
     font-size: 14px;
     font-weight: 500;
 }
 div[data-testid="stMetricValue"] {
-    color: white;
+    color: white !important;
     font-size: 28px;
     font-weight: bold;
 }
@@ -120,8 +122,9 @@ if not df.empty:
         df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce', dayfirst=True)
         df = df.dropna(subset=['Date Object'])
         
-        # Calculate Metrics
-        current_date = pd.Timestamp.now()        current_month = current_date.month
+        # --- FIXED SYNTAX HERE ---
+        current_date = pd.Timestamp.now()
+        current_month = current_date.month
         current_year = current_date.year
         
         total_earnings = df['Amount'].sum()
@@ -161,19 +164,23 @@ if not df.empty:
         def highlight_amount(val):
             return 'color: green; font-weight: bold'
             
+        # Display the actual Date column instead of the Object if preferred
         styled_df = df.style.format({"Amount": "${:,.2f}"})\
                             .map(highlight_amount, subset=['Amount'])
                             
         st.dataframe(styled_df, use_container_width=True, hide_index=True)
 
         # Downloads
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Download CSV", csv, "KitchenerFinance.csv", "text/csv")
+        col_down1, col_down2 = st.columns(2)
+        with col_down1:
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Download CSV", csv, "KitchenerFinance.csv", "text/csv")
         
-        buffer = io.BytesIO()
-        df.to_excel(buffer, index=False)
-        buffer.seek(0)
-        st.download_button("Download Excel", buffer, "KitchenerFinance.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        with col_down2:
+            buffer = io.BytesIO()
+            df.to_excel(buffer, index=False)
+            buffer.seek(0)
+            st.download_button("📥 Download Excel", buffer, "KitchenerFinance.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 else:
     st.info("No data available.")
