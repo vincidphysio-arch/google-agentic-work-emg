@@ -101,12 +101,13 @@ if "Type of encounter" in df.columns:
                 (df_valid["Year"] == current_year)
             ]["Earnings"].sum()
             
-            total_earnings = df["Earnings"].sum()
             total_encounters = len(df)
 
             # --- Display Metrics with Enhanced Custom CSS ---
-            st.markdown("""
-            <style>
+            # Total earnings - now only counts current year (2025) since work started this year
+            total_earnings = df_valid[
+                (df_valid["Year"] == current_year)
+            ]["Earnings"].sum()            <style>
             /* General page styling */
             .main {
                 background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
