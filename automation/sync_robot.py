@@ -79,13 +79,26 @@ def parse_interac_email(service, msg_id):
         # Simple extraction (Text based, ignoring HTML tags for regex)
         # Using the same logic as the Sync App
         
-        # Regex for Amount
-        # Try 1: Standard $1,234.50
-        amount_match = re.search(r'\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', decoded_data)
+        # Simple extraction (Text based, ignoring HTML tags for regex)
+        # Using the same logic as the Sync App
+        # Remove HTML tags logic (rudimentary but avoiding bs4 dependency if not needed? Actually bs4 is better)
+        # Since we added bs4 to requirements, let's use it or stick to decoded_data if simple.
+        # But for consistency, let's upgrade regex here too.
         
-        # Try 2: "Amount: 1234.50"
+        # Pattern 1: $1,234.50
+        amount_match = re.search(r'\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))', decoded_data)
+        
+        # Pattern 2: "910.00 (CAD)" or "910.00 CAD"
         if not amount_match:
-             amount_match = re.search(r'Amount:?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', decoded_data, re.IGNORECASE)
+             amount_match = re.search(r'(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:CAD|CDN)', decoded_data, re.IGNORECASE)
+
+        # Pattern 3: "sent you 910.00"
+        if not amount_match:
+             amount_match = re.search(r'sent you\s+\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))', decoded_data, re.IGNORECASE)
+
+        # Pattern 4: "Amount: 910.00"
+        if not amount_match:
+             amount_match = re.search(r'Amount:?\s*\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))', decoded_data, re.IGNORECASE)
         
         amount = amount_match.group(1) if amount_match else "0.00"
 

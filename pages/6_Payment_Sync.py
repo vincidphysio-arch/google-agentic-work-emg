@@ -139,15 +139,24 @@ def parse_interac_email(service, msg_id):
              body_data = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
 
         soup = BeautifulSoup(body_data, 'html.parser')
-        text_content = soup.get_text()
+        # Use separator to avoid joining text like "Amount:$500" into "Amount:$500" without space if hidden in divs
+        text_content = soup.get_text(separator=' ')
 
         # Regex for Amount
-        # Try 1: Standard $1,234.50
-        amount_match = re.search(r'\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text_content)
+        # Pattern 1: $1,234.50
+        amount_match = re.search(r'\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))', text_content)
         
-        # Try 2: "Amount: 1234.50" (common in some templates)
+        # Pattern 2: "910.00 (CAD)" or "910.00 CAD"
         if not amount_match:
-             amount_match = re.search(r'Amount:?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text_content, re.IGNORECASE)
+             amount_match = re.search(r'(\d{1,3}(?:,\d{3})*(?:\.\d{2}))\s*(?:CAD|CDN)', text_content, re.IGNORECASE)
+
+        # Pattern 3: "sent you 910.00"
+        if not amount_match:
+             amount_match = re.search(r'sent you\s+\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))', text_content, re.IGNORECASE)
+
+        # Pattern 4: "Amount: 910.00"
+        if not amount_match:
+             amount_match = re.search(r'Amount:?\s*\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2}))', text_content, re.IGNORECASE)
 
         amount = amount_match.group(1) if amount_match else "0.00"
 
