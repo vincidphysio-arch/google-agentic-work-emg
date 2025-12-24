@@ -79,6 +79,9 @@ if not df.empty:
             
         df = df.dropna(subset=['Date Object']).reset_index(drop=True)
         
+        # 5. Sort by Date Descending (Newest First)
+        df = df.sort_values(by='Date Object', ascending=False).reset_index(drop=True)
+        
         current_date = pd.Timestamp.now()
         current_month = current_date.month
         current_year = current_date.year
@@ -86,6 +89,13 @@ if not df.empty:
         total_earnings = df['Amount'].sum()
         monthly_earnings = df[(df['Date Object'].dt.month == current_month) & (df['Date Object'].dt.year == current_year)]['Amount'].sum()
         yearly_earnings = df[(df['Date Object'].dt.year == current_year)]['Amount'].sum()
+        
+        # Check for potential duplicates (Same Date, Same Amount, Same Sender)
+        duplicates = df[df.duplicated(subset=['Date', 'Amount', 'Sender'], keep=False)]
+        if not duplicates.empty:
+            st.warning(f"⚠️ Warning: Found {len(duplicates)} potential duplicate entries! This might explain why your income looks too high.")
+            with st.expander("Show Duplicates"):
+                st.dataframe(duplicates)
         
         st.markdown("### 📊 Earnings Overview")
         l_col, r_col = st.columns([2, 1])
