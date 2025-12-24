@@ -51,6 +51,7 @@ def get_connection():
         st.error(f"❌ Error: {e}")
         st.stop()
 
+@st.cache_data(ttl=60)
 def get_expense_data():
     gc = get_connection()
     sh = gc.open(SHEET_NAME)
@@ -118,6 +119,10 @@ def main():
         st.switch_page("Home.py")
 
     st.title("💸 AI Expense Tracker")
+    
+    if st.button("🔄 Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
 
     # Initialize Session State
     if 'form_date' not in st.session_state: st.session_state['form_date'] = date.today()

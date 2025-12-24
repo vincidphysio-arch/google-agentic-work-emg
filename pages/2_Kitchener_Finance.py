@@ -61,8 +61,9 @@ if not df.empty:
     df = df.loc[:, ~df.columns.duplicated()]
 
     # 2. Filter and RESET INDEX
-    if 'Doctor' in df.columns:
-        df = df[~df['Doctor'].str.contains('Tugalov', case=False, na=False)].reset_index(drop=True)
+    # (Removed Tugalov filter as per user request to include all doctors)
+    # if 'Doctor' in df.columns:
+    #     df = df[~df['Doctor'].str.contains('Tugalov', case=False, na=False)].reset_index(drop=True)
     
     # 3. Convert Amount to Numeric
     if 'Amount' in df.columns:
@@ -71,6 +72,11 @@ if not df.empty:
     # 4. Parse Dates
     if 'Date' in df.columns:
         df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce', dayfirst=True)
+        # Log warning if dates are dropped
+        n_dropped = df['Date Object'].isna().sum() 
+        if n_dropped > 0:
+            st.warning(f"⚠️ {n_dropped} rows had invalid dates and were excluded.")
+            
         df = df.dropna(subset=['Date Object']).reset_index(drop=True)
         
         current_date = pd.Timestamp.now()
