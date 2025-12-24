@@ -1,11 +1,11 @@
 DEBUG_ERROR: StreamlitSecretNotFoundError()
 Traceback (most recent call last):
-  File "C:\Users\vinci\.gemini\antigravity\playground\google-agentic-work-emg\debug_sheets.py", line 10, in main
-    creds_dict = json.loads(st.secrets["gcpjson"])
-                            ~~~~~~~~~~^^^^^^^^^^^
-  File "C:\Users\vinci\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\runtime\secrets.py", line 474, in __getitem__
-    value = self._parse()[key]
-            ~~~~~~~~~~~^^
+  File "C:\Users\vinci\.gemini\antigravity\playground\google-agentic-work-emg\debug_payment_v2.py", line 10, in main
+    if "gcpjson" in st.secrets:
+       ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\vinci\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\runtime\secrets.py", line 527, in __contains__
+    return key in self._parse()
+                  ~~~~~~~~~~~^^
   File "C:\Users\vinci\AppData\Local\Programs\Python\Python313\Lib\site-packages\streamlit\runtime\secrets.py", line 376, in _parse
     raise StreamlitSecretNotFoundError(error_msg)
 streamlit.errors.StreamlitSecretNotFoundError: No secrets found. Valid paths for a secrets.toml file or secret directories are: C:\Users\vinci\.streamlit\secrets.toml, C:\Users\vinci\.gemini\antigravity\playground\google-agentic-work-emg\.streamlit\secrets.toml
