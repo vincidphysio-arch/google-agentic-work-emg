@@ -184,20 +184,32 @@ def main():
     
     st.info("This tool scans your Gmail for 'Interac' emails from the last 7 days and adds them to the Google Sheet if missing.")
 
+    # Initialize Session State for Flow Control
+    if 'sync_active' not in st.session_state:
+        st.session_state['sync_active'] = False
+
     if st.button("🚀 Start Sync", type="primary"):
+        st.session_state['sync_active'] = True
+
+    # Main Logic Block (Runs if active, avoiding nested button issues)
+    if st.session_state['sync_active']:
+        if st.button("❌ Cancel / Reset"):
+            st.session_state['sync_active'] = False
+            st.rerun()
+            
         status = st.empty()
         status.write("🔑 Authenticating with Gmail...")
         
         try:
             service = get_gmail_service()
             if not service:
+                # get_gmail_service handles the UI for auth. 
+                # If it returns None, it means we are waiting for user action.
                 return
 
             status.write("🔍 Searching for recent Interac emails...")
             
             # Search Query: "Interac" AND "deposited" in last 7 days
-            today = datetime.now().strftime("%Y/%m/%d")
-            # query = f'subject:"Interac e-Transfer" "deposited" after:{before_date}' # Simplified for demo
             query = 'subject:"Interac e-Transfer" "deposited"'
             
             results = service.users().messages().list(userId='me', q=query, maxResults=20).execute()
@@ -222,57 +234,47 @@ def main():
                 return
                 
             existing_data = ws.get_all_values()
-            # headers: Date, Sender, Amount
-            # Simple dedupe key: Date + Amount (Rough but effective for now)
             
             existing_keys = set()
             for row in existing_data[1:]:
-                # Setup key: Amount + Sender (Date might vary slightly between email and log)
-                # Let's use Amount + Sender for safety
-                amt = str(row[2]).replace('$','').replace(',','')
-                snd = str(row[1]).lower().strip()
-                key = f"{amt}_{snd}"
-                existing_keys.add(key)
-                # strict key
-                key_strict = f"{row[0]}_{amt}_{snd}" # Date_Amt_Sender
-                existing_keys.add(key_strict)
+                if len(row) > 2:
+                    amt = str(row[2]).replace('$','').replace(',','')
+                    snd = str(row[1]).lower().strip()
+                    key = f"{amt}_{snd}"
+                    existing_keys.add(key)
+                    # strict key
+                    key_strict = f"{row[0]}_{amt}_{snd}" 
+                    existing_keys.add(key_strict)
 
             new_payments = []
             for p in found_payments:
                 p_amt = str(p['amount']).replace(',','')
                 p_snd = str(p['sender']).lower().strip()
-                
-                # Check duplication
                 key = f"{p_amt}_{p_snd}"
                 
-                # Verify date proximity? For now, just trust unique key or subject ID if possible
-                # Google Sheets usually doesn't store Msg ID.
-                # Let's Assume if (Amount, Sender) matches in last 7 days, it's the same.
-                
-                # BETTER: Check date diff? 
-                # Let's just list them for review first? 
-                # Or auto-add if perfectly unique.
-                
-                # Let's implement safe auto-add
                 if key not in existing_keys:
-                    # Doctor mapping (simple logic)
                     doctor = "Unknown"
                     if "TRIPIC" in p['sender'].upper(): doctor = "Dr. Tripic"
                     elif "CARTAGENA" in p['sender'].upper(): doctor = "Dr. Cartagena"
                     
                     new_payments.append([p['date'], p['sender'], p['amount'], doctor])
-                    existing_keys.add(key) # Prevent double adding in same loop
+                    existing_keys.add(key)
 
             if new_payments:
                 st.write(f"✨ Found {len(new_payments)} NEW payments:")
                 df_new = pd.DataFrame(new_payments, columns=["Date", "Sender", "Amount", "Doctor"])
                 st.dataframe(df_new)
                 
-                if st.button("Confirm & Save to Sheet"):
+                # Nested button here is fine because it's the end of the flow? 
+                # Actually, still risky. Better to use a form or logic.
+                # But let's try standard button first, if it fails we use a key.
+                if st.button("Confirm & Save to Sheet", key="confirm_save"):
                     ws.append_rows(new_payments)
                     st.success("✅ Successfully saved to Google Sheet!")
+                    st.balloons()
             else:
                 st.success("✅ No new payments found. Your sheet is up to date!")
+                st.balloons()
                 
         except Exception as e:
             st.error(f"An error occurred: {e}")
