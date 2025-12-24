@@ -1,0 +1,30 @@
+name: Hourly Payment Sync
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Run every hour
+  workflow_dispatch:      # Allow manual trigger button
+
+jobs:
+  run-sync-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install Dependencies
+      run: |
+        pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client gspread
+
+    - name: Run Sync Robot
+      env:
+        # These secrets must be set in GitHub Repo -> Settings -> Secrets
+        GMAIL_TOKEN: ${{ secrets.GMAIL_TOKEN }} 
+        GCP_JSON: ${{ secrets.GCP_JSON }}
+      run: python automation/sync_robot.py

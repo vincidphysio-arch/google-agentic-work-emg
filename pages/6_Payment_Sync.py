@@ -284,6 +284,55 @@ def main():
             else:
                 st.success("✅ No new payments found. Your sheet is up to date!")
                 st.balloons()
+                
+            # --- Secrets Export for GitHub Automation ---
+            st.divider()
+            with st.expander("🤖 Configure Automatic Robot (GitHub Actions)"):
+                st.markdown("""
+                To make this run **automatically every hour** on GitHub, you need to add these two secrets 
+                to your GitHub Repository Settings (`Settings` -> `Secrets and variables` -> `Actions`).
+                """)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.subheader("1. GMAIL_TOKEN")
+                    # Try to get token from current session or file
+                    token_content = None
+                    if os.path.exists('token.json'):
+                        with open('token.json', 'r') as f:
+                            token_content = f.read()
+                    
+                    if token_content:
+                        st.code(token_content, language="json")
+                        st.caption("Copy this and paste it as `GMAIL_TOKEN` in GitHub Secrets.")
+                    else:
+                        st.warning("⚠️ Please 'Start Sync' and Login first to generate this token.")
+
+                with col2:
+                    st.subheader("2. GCP_JSON")
+                    if "gcpjson" in st.secrets:
+                        # Reconstruct JSON string from secrets toml object or string
+                        # st.secrets returns an AttrDict for TOML tables, or string if raw.
+                        # Assuming it's a string structure in toml like gcpjson = '...' or [gcpjson]
+                        # Based on typical usage, it might be a dictionary if parsed from TOML table.
+                        try:
+                            # If it handles as a dict in secrets.toml
+                            gcp_data = st.secrets["gcpjson"]
+                            if isinstance(gcp_data, str):
+                                st.code(gcp_data, language="json")
+                            else:
+                                st.code(json.dumps(dict(gcp_data)), language="json")
+                            st.caption("Copy this and paste it as `GCP_JSON` in GitHub Secrets.")
+                        except:
+                            st.error("Could not read gcpjson from secrets.")
+                    else:
+                        st.error("gcpjson missing from secrets.")
+        
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
+            st.expander("Traceback").write(str(e))
+
 
 if __name__ == "__main__":
     main()
