@@ -273,17 +273,25 @@ def main():
                     if "TRIPIC" in p['sender'].upper(): doctor = "Dr. Tripic"
                     elif "CARTAGENA" in p['sender'].upper(): doctor = "Dr. Cartagena"
                     
-                    new_payments.append([p['date'], p['sender'], p['amount'], doctor])
+                    # Store full dict for debugging, add computed doctor field
+                    p_entry = p.copy()
+                    p_entry['doctor'] = doctor
+                    new_payments.append(p_entry)
+                    
                     existing_keys.add(key)
 
             if new_payments:
                 st.write(f"✨ Found {len(new_payments)} NEW payments:")
                 st.warning("⚠️ Please review and EDIT the table below if amounts are 0.00!")
                 
-                df_new = pd.DataFrame(new_payments, columns=["Date", "Sender", "Amount", "Doctor"])
+                # Create DataFrame from dicts
+                df_new = pd.DataFrame(new_payments)
+                # Select and reorder columns for display
+                df_display = df_new[["date", "sender", "amount", "doctor"]]
+                df_display.columns = ["Date", "Sender", "Amount", "Doctor"]
                 
                 # Use Data Editor to allow manual corrections
-                edited_df = st.data_editor(df_new, num_rows="dynamic")
+                edited_df = st.data_editor(df_display, num_rows="dynamic")
                 
                 # --- DEBUG SECTION ---
                 # Show raw text for the first 0.00 amount to help debug
