@@ -177,7 +177,8 @@ def parse_interac_email(service, msg_id):
             "date": email_date.strftime("%d/%m/%Y %H:%M:%S"),
             "sender": sender,
             "amount": amount,
-            "subject": subject
+            "subject": subject,
+            "raw_text": text_content[0:2000] # Save snippet for debug
         }
 
     except Exception as e:
@@ -284,6 +285,15 @@ def main():
                 # Use Data Editor to allow manual corrections
                 edited_df = st.data_editor(df_new, num_rows="dynamic")
                 
+                # --- DEBUG SECTION ---
+                # Show raw text for the first 0.00 amount to help debug
+                zero_rows = [p for p in new_payments if p['amount'] == "0.00"]
+                if zero_rows:
+                    st.divider()
+                    st.error("🐞 Debug Info: I can't read the amount for these emails. Here is what I see:")
+                    st.text_area("Raw Email Text (Copy/Paste this to the AI)", zero_rows[0].get('raw_text', 'No raw text saved'), height=200)
+                # ---------------------
+
                 if st.button("Confirm & Save to Sheet", key="confirm_save"):
                     # Convert edited DF back to list
                     final_data = edited_df.values.tolist()
