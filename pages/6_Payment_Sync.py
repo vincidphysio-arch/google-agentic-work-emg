@@ -141,8 +141,14 @@ def parse_interac_email(service, msg_id):
         soup = BeautifulSoup(body_data, 'html.parser')
         text_content = soup.get_text()
 
-        # Regex for Amount ($910.00)
-        amount_match = re.search(r'\$(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text_content)
+        # Regex for Amount
+        # Try 1: Standard $1,234.50
+        amount_match = re.search(r'\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text_content)
+        
+        # Try 2: "Amount: 1234.50" (common in some templates)
+        if not amount_match:
+             amount_match = re.search(r'Amount:?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', text_content, re.IGNORECASE)
+
         amount = amount_match.group(1) if amount_match else "0.00"
 
         # Regex for Sender (From X)
@@ -262,23 +268,22 @@ def main():
 
             if new_payments:
                 st.write(f"✨ Found {len(new_payments)} NEW payments:")
-                df_new = pd.DataFrame(new_payments, columns=["Date", "Sender", "Amount", "Doctor"])
-                st.dataframe(df_new)
+                st.warning("⚠️ Please review and EDIT the table below if amounts are 0.00!")
                 
-                # Nested button here is fine because it's the end of the flow? 
-                # Actually, still risky. Better to use a form or logic.
-                # But let's try standard button first, if it fails we use a key.
+                df_new = pd.DataFrame(new_payments, columns=["Date", "Sender", "Amount", "Doctor"])
+                
+                # Use Data Editor to allow manual corrections
+                edited_df = st.data_editor(df_new, num_rows="dynamic")
+                
                 if st.button("Confirm & Save to Sheet", key="confirm_save"):
-                    ws.append_rows(new_payments)
+                    # Convert edited DF back to list
+                    final_data = edited_df.values.tolist()
+                    ws.append_rows(final_data)
                     st.success("✅ Successfully saved to Google Sheet!")
                     st.balloons()
             else:
                 st.success("✅ No new payments found. Your sheet is up to date!")
                 st.balloons()
-                
-        except Exception as e:
-            st.error(f"An error occurred: {e}")
-            st.expander("Traceback").write(str(e))
 
 if __name__ == "__main__":
     main()
