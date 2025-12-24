@@ -20,33 +20,74 @@ def get_gmail_service():
     Lists the user's Gmail labels.
     """
     creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
+    # 1. Try to load token from secrets or file
     if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not os.path.exists('credentials.json'):
-                st.error("❌ 'credentials.json' not found. Please upload your Gmail OAuth credentials.")
-                return None
-            
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            # Use a local server for auth (might need adjustment for Streamlit Cloud)
-            # For Streamlit Cloud, we might need a different approach (e.g. copy paste token)
-            # But for local testing this works.
-            creds = flow.run_local_server(port=0)
-        
-        # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+    
+    # 2. If valid, return service
+    if creds and creds.valid:
+        return build('gmail', 'v1', credentials=creds)
 
-    service = build('gmail', 'v1', credentials=creds)
-    return service
+    # 3. Refresh if expired
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+            with open('token.json', 'w') as token:
+                token.write(creds.to_json())
+            return build('gmail', 'v1', credentials=creds)
+        except Exception:
+            st.warning("Token expired and refresh failed. Please re-authenticate.")
+            creds = None
+
+    # 4. New Authentication
+    if not creds:
+        # Check for credentials
+        creds_info = None
+        if os.path.exists('credentials.json'):
+            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+        elif "gmail" in st.secrets:
+            # Allow pasting JSON in secrets.toml under [gmail]
+            creds_info = json.loads(st.secrets["gmail"]["client_secret_json"])
+            flow = InstalledAppFlow.from_client_config(creds_info, SCOPES)
+        else:
+            # Fallback: UI Input
+            with st.expander("⚙️ Setup Gmail Access (One Time)", expanded=True):
+                st.write("To read your emails, we need your `credentials.json` from Google Cloud Console.")
+                uploaded_file = st.file_uploader("Upload credentials.json", type="json")
+                if uploaded_file:
+                    string_data = uploaded_file.getvalue().decode("utf-8")
+                    with open("credentials.json", "w") as f:
+                        f.write(string_data)
+                    st.success("Uploaded! Click Sync again.")
+                    st.rerun()
+                st.stop()
+                return None
+
+        # Cloud-friendly Auth Flow (OOB)
+        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+        auth_url, _ = flow.authorization_url(prompt='consent')
+
+        st.markdown(f"### 🔗 [Click here to Authorize Gmail Access]({auth_url})")
+        st.info("Since this app runs in the cloud, we need to copy-paste the code manually.")
+        
+        code = st.text_input("Paste the Authorization Code here:", type="password")
+        
+        if code:
+            try:
+                flow.fetch_token(code=code)
+                creds = flow.credentials
+                # Save token locally (ephemeral in cloud, but works for session)
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
+                st.success("✅ Authenticated! click Start Sync again.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Authentication failed: {e}")
+                return None
+        else:
+            st.stop() # Wait for input
+
+    return build('gmail', 'v1', credentials=creds)
 
 def parse_interac_email(service, msg_id):
     """
