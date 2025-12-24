@@ -16,9 +16,9 @@ if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 def analyze_receipt(image):
-    # Use the specific, stable Flash model
+    # Fixed: Use a valid model name (1.5-flash is stable and fast)
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = """
         Analyze this receipt image. Return ONLY a raw JSON object with these fields:
         {
@@ -115,8 +115,8 @@ def add_expense(date_val, category, amount, location, receipt_note):
 def main():
     st.set_page_config(page_title="Expense Tracker", layout="wide")
     
-    if st.sidebar.button("⬅️ Back to Home"):
-        st.switch_page("Home.py")
+    # if st.sidebar.button("⬅️ Back to Home"):
+    #    st.switch_page("Home.py")
 
     st.title("💸 AI Expense Tracker")
     
