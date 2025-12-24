@@ -41,27 +41,45 @@ def get_gmail_service():
 
     # 4. New Authentication
     if not creds:
-        # Check for credentials
-        creds_info = None
-        if os.path.exists('credentials.json'):
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-        elif "gmail" in st.secrets:
-            # Allow pasting JSON in secrets.toml under [gmail]
-            creds_info = json.loads(st.secrets["gmail"]["client_secret_json"])
-            flow = InstalledAppFlow.from_client_config(creds_info, SCOPES)
-        else:
-            # Fallback: UI Input
-            with st.expander("⚙️ Setup Gmail Access (One Time)", expanded=True):
-                st.write("To read your emails, we need your `credentials.json` from Google Cloud Console.")
-                uploaded_file = st.file_uploader("Upload credentials.json", type="json")
-                if uploaded_file:
-                    string_data = uploaded_file.getvalue().decode("utf-8")
-                    with open("credentials.json", "w") as f:
-                        f.write(string_data)
-                    st.success("Uploaded! Click Sync again.")
-                    st.rerun()
+        # Check session state first
+        creds_content = st.session_state.get('creds_json_content', None)
+        
+        # UI to get credentials if missing
+        if not creds_content:
+            if os.path.exists('credentials.json'):
+                # Legacy check
+                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            elif "gmail" in st.secrets:
+                 creds_info = json.loads(st.secrets["gmail"]["client_secret_json"])
+                 flow = InstalledAppFlow.from_client_config(creds_info, SCOPES)
+            else:
+                st.warning("⚠️ Credentials not found.")
+                with st.expander("⚙️ Setup Gmail Access", expanded=True):
+                    tab1, tab2 = st.tabs(["📂 Upload File", "📝 Paste JSON"])
+                    
+                    with tab1:
+                        uploaded_file = st.file_uploader("Upload credentials.json", type="json", key="u1")
+                        if uploaded_file:
+                            creds_content = json.load(uploaded_file)
+                            st.session_state['creds_json_content'] = creds_content
+                            st.success("Loaded!")
+                            st.rerun()
+                            
+                    with tab2:
+                        json_str = st.text_area("Paste credentials.json content here")
+                        if st.button("Save JSON"):
+                            try:
+                                creds_content = json.loads(json_str)
+                                st.session_state['creds_json_content'] = creds_content
+                                st.success("Loaded!")
+                                st.rerun()
+                            except:
+                                st.error("Invalid JSON")
                 st.stop()
                 return None
+        else:
+            # We have content in session state
+            flow = InstalledAppFlow.from_client_config(creds_content, SCOPES)
 
         # Cloud-friendly Auth Flow (OOB)
         flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
@@ -80,6 +98,7 @@ def get_gmail_service():
                 with open('token.json', 'w') as token:
                     token.write(creds.to_json())
                 st.success("✅ Authenticated! click Start Sync again.")
+                st.session_state['creds_json_content'] = None # Clear after success
                 st.rerun()
             except Exception as e:
                 st.error(f"Authentication failed: {e}")
