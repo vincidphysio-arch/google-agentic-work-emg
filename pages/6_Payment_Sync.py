@@ -129,14 +129,27 @@ def parse_interac_email(service, msg_id):
             email_date = datetime.now() # Fallback
 
         # Get Body
-        body_data = ""
-        if 'parts' in payload:
-            for part in payload['parts']:
-                if part['mimeType'] == 'text/html':
-                    body_data = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
-                    break
-        elif 'body' in payload:
-             body_data = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+        # Recursive function to find body
+        def get_body_from_payload(payload):
+            if 'body' in payload and 'data' in payload['body']:
+                return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+            
+            if 'parts' in payload:
+                for part in payload['parts']:
+                    if part['mimeType'] == 'text/html':
+                        return get_body_from_payload(part)
+                    if part['mimeType'] == 'text/plain': # Fallback
+                        return get_body_from_payload(part)
+                    if 'parts' in part: # Nested parts
+                         res = get_body_from_payload(part)
+                         if res: return res
+            return ""
+
+        body_data = get_body_from_payload(payload)
+        
+        if not body_data:
+             # Last ditch effort: extracted snippet from list
+             body_data = message.get('snippet', '')
 
         soup = BeautifulSoup(body_data, 'html.parser')
         # Use separator to avoid joining text like "Amount:$500" into "Amount:$500" without space if hidden in divs

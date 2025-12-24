@@ -67,14 +67,24 @@ def parse_interac_email(service, msg_id):
                 except:
                     pass
 
-        # Get Body
-        if 'parts' in payload:
-            parts = payload.get('parts')[0]
-            data = parts['body']['data']
-        else:
-            data = payload['body']['data']
+        # Recursive function to find body
+        def get_body_from_payload(payload):
+            if 'body' in payload and 'data' in payload['body']:
+                return base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
             
-        decoded_data = base64.urlsafe_b64decode(data).decode('utf-8')
+            if 'parts' in payload:
+                for part in payload['parts']:
+                    if part['mimeType'] == 'text/html':
+                        return get_body_from_payload(part)
+                    if part['mimeType'] == 'text/plain': # Fallback
+                        return get_body_from_payload(part)
+                    if 'parts' in part: # Nested parts
+                         res = get_body_from_payload(part)
+                         if res: return res
+            return ""
+
+        decoded_data = get_body_from_payload(payload)
+        if not decoded_data: decoded_data = msg.get('snippet', '')
         
         # Simple extraction (Text based, ignoring HTML tags for regex)
         # Using the same logic as the Sync App
