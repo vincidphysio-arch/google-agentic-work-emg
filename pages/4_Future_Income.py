@@ -66,7 +66,7 @@ def main():
         # Clean Work Log
         date_col = 'Date Worked' 
         if 'Date Worked' not in df_work.columns:
-             date_col = df_work.columns[0] 
+today = pd.Timestamp.now(tz='America/Toronto').tz_localize(None).floor('D')
 
         df_work['Date Object'] = pd.to_datetime(df_work[date_col], errors='coerce')
         df_work = df_work.dropna(subset=['Date Object'])
