@@ -60,26 +60,21 @@ if not df.empty:
     # 1. FIX: Remove duplicate column names immediately (Required for Streamlit/Arrow)
     df = df.loc[:, ~df.columns.duplicated()]
 
-    # 2. Filter and RESET INDEX
-    # (Removed Tugalov filter as per user request to include all doctors)
-    # if 'Doctor' in df.columns:
-    #     df = df[~df['Doctor'].str.contains('Tugalov', case=False, na=False)].reset_index(drop=True)
-    
-    # 3. Convert Amount to Numeric
+    # 2. Convert Amount to Numeric
     if 'Amount' in df.columns:
         df['Amount'] = pd.to_numeric(df['Amount'].astype(str).str.replace('$','').str.replace(',',''), errors='coerce').fillna(0)
         
-    # 4. Parse Dates
+    # 3. Parse Dates (format='mixed' prevents dropping historical rows)
     if 'Date' in df.columns:
-        df['Date Object'] = pd.to_datetime(df['Date'], errors='coerce', dayfirst=True)
-        # Log warning if dates are dropped
+        df['Date Object'] = pd.to_datetime(df['Date'], format='mixed', dayfirst=True, errors='coerce')
+        
         n_dropped = df['Date Object'].isna().sum() 
         if n_dropped > 0:
             st.warning(f"⚠️ {n_dropped} rows had invalid dates and were excluded.")
             
         df = df.dropna(subset=['Date Object']).reset_index(drop=True)
         
-        # 5. Sort by Date Descending (Newest First)
+        # 4. Sort by Date Descending (Newest First)
         df = df.sort_values(by='Date Object', ascending=False).reset_index(drop=True)
         
         current_date = pd.Timestamp.now()
@@ -90,10 +85,10 @@ if not df.empty:
         monthly_earnings = df[(df['Date Object'].dt.month == current_month) & (df['Date Object'].dt.year == current_year)]['Amount'].sum()
         yearly_earnings = df[(df['Date Object'].dt.year == current_year)]['Amount'].sum()
         
-        # Check for potential duplicates (Same Date, Same Amount, Same Sender)
+        # Duplicate warning
         duplicates = df[df.duplicated(subset=['Date', 'Amount', 'Sender'], keep=False)]
         if not duplicates.empty:
-            st.warning(f"⚠️ Warning: Found {len(duplicates)} potential duplicate entries! This might explain why your income looks too high.")
+            st.warning(f"⚠️ Warning: Found {len(duplicates)} potential duplicate entries!")
             with st.expander("Show Duplicates"):
                 st.dataframe(duplicates)
         
@@ -110,7 +105,6 @@ if not df.empty:
         st.subheader("📋 Detailed Records")
         
         try:
-            # Use map for cell-wise styling
             styled_df = df.style.format({"Amount": "${:,.2f}"}).map(lambda x: 'color: green; font-weight: bold', subset=['Amount'])
             st.dataframe(styled_df, use_container_width=True, hide_index=True)
         except Exception:
@@ -119,12 +113,12 @@ if not df.empty:
         # Downloads
         col_down1, col_down2 = st.columns(2)
         with col_down1:
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button("📥 Download CSV", csv, "KitchenerFinance.csv", "text/csv")
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download CSV", csv, "Kitchener_Finance.csv", "text/csv")
         with col_down2:
             buffer = io.BytesIO()
             df.to_excel(buffer, index=False)
             buffer.seek(0)
-            st.download_button("📥 Download Excel", buffer, "KitchenerFinance.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.download_button("📥 Download Excel", buffer, "Kitchener_Finance.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 else:
     st.info("No data available.")
