@@ -66,17 +66,17 @@ def main():
         # Clean Work Log
         date_col = 'Date Worked' 
         if 'Date Worked' not in df_work.columns:
-today = pd.Timestamp.now(tz='America/Toronto').tz_localize(None).floor('D')
+            date_col = df_work.columns[0] 
 
         df_work['Date Object'] = pd.to_datetime(df_work[date_col], errors='coerce')
         df_work = df_work.dropna(subset=['Date Object'])
         
-        # Count PAST work days (Unique Dates Only!)
-        today = datetime.now()
+        # Count PAST work days (Toronto local time floored to midnight)
+        today = pd.Timestamp.now(tz='America/Toronto').tz_localize(None).floor('D')
         past_work = df_work[df_work['Date Object'] < today]
         future_work = df_work[df_work['Date Object'] >= today]
         
-        # *** FIX: Count UNIQUE dates so split days count as 1 ***
+        # *** Count UNIQUE dates so split days count as 1 ***
         days_worked = past_work['Date Object'].dt.date.nunique()
         
         # Calculate Real Average
@@ -102,28 +102,20 @@ today = pd.Timestamp.now(tz='America/Toronto').tz_localize(None).floor('D')
         st.sidebar.divider()
         st.sidebar.subheader("🚫 Filter Non-Work Events")
         
-        # Get unique event names from future work
         unique_events = sorted([str(x) for x in future_work['Event Name'].unique() if x])
         
-        # Default: Select ALL events initially (user un-checks what they don't want)
-        # OR: Select all except common non-work keywords if desired. For now, select all.
         selected_events = st.sidebar.multiselect(
             "Include these Events in Calculation:",
             options=unique_events,
             default=unique_events
         )
         
-        # Filter future_work based on selection
         scope_work_filtered = future_work[
             (future_work['Event Name'].isin(selected_events)) &
             (future_work['Date Object'] <= (today + timedelta(days=months_forward*30)))
         ]
 
         # --- 3. CALCULATE PREDICTIONS ---
-        end_date = today + timedelta(days=months_forward*30)
-        # scope_work = future_work[future_work['Date Object'] <= end_date] # Replaced by filtered scope
-        
-        # *** FIX: Count UNIQUE future dates ***
         future_days_count = scope_work_filtered['Date Object'].dt.date.nunique()
         projected_income = future_days_count * use_rate
         
@@ -135,10 +127,9 @@ today = pd.Timestamp.now(tz='America/Toronto').tz_localize(None).floor('D')
         
         st.divider()
         
-        # Group by Month for Chart
+        scope_work_filtered = scope_work_filtered.copy()
         scope_work_filtered['Month_Year'] = scope_work_filtered['Date Object'].dt.strftime('%Y-%m')
         
-        # *** FIX: Group by Month, counting UNIQUE dates ***
         monthly_counts = scope_work_filtered.groupby('Month_Year')['Date Object'].apply(lambda x: x.dt.date.nunique()).reset_index(name='Days')
         monthly_counts['Estimated Income'] = monthly_counts['Days'] * use_rate
         
@@ -148,7 +139,6 @@ today = pd.Timestamp.now(tz='America/Toronto').tz_localize(None).floor('D')
         with st.expander("See Future Schedule (Filtered)"):
             display_cols = [date_col, "Event Name", "Doctor"]
             final_cols = [c for c in display_cols if c in scope_work_filtered.columns]
-            # Sort by date
             st.dataframe(
                 scope_work_filtered.sort_values('Date Object')[final_cols], 
                 use_container_width=True, 
